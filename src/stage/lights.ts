@@ -27,9 +27,25 @@ export class Lights {
     moveLightsComputeBindGroupLayout: GPUBindGroupLayout;
     moveLightsComputeBindGroup: GPUBindGroup;
     moveLightsComputePipeline: GPUComputePipeline;
-
-    // TODO-2: add layouts, pipelines, textures, etc. needed for light clustering here
-
+    
+    // declare a new variable for the width of the cluster grid
+    static readonly cluster_grid_width = 10;
+    
+    // declare a new variable for the height of the cluster grid
+    static readonly cluster_grid_height = 20;
+    
+    // declare a new variable for the depth of the cluster grid
+    static readonly cluster_grid_depth = 30;
+    
+    // declare a new uniform buffer for the cluster grid properties
+    cluster_grid_buffer: GPUBuffer;
+    
+    // declare the bind group layout for the clusters
+    cluster_bind_group_layout: GPUBindGroupLayout;
+    
+    // declare the bind group for the clusters
+    cluster_bind_group: GPUBindGroup;
+    
     constructor(camera: Camera) {
         this.camera = camera;
 
@@ -46,7 +62,14 @@ export class Lights {
             size: 4,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
         });
-
+        
+        // allocate the cluster grid buffer
+        this.cluster_grid_buffer = device.createBuffer({
+            label: "cluster_grid_buffer",
+            size: 4 * 4,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+        
         this.moveLightsComputeBindGroupLayout = device.createBindGroupLayout({
             label: "move lights compute bind group layout",
             entries: [
@@ -92,8 +115,57 @@ export class Lights {
                 entryPoint: "main"
             }
         });
-
-        // TODO-2: initialize layouts, pipelines, textures, etc. needed for light clustering here
+        
+        // create the bind group layout for the clusters
+        this.cluster_bind_group_layout = device.createBindGroupLayout({
+            label: "cluster_bind_group_layout",
+            entries: [
+                
+                // create a new bind group layout entry for the cluster grid buffer
+                {
+                    // specify the binding index
+                    binding: 0,
+                    
+                    // specify the shader stage to be all shaders
+                    visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+                    
+                    // specify the buffer type to be uniform
+                    buffer: {
+                        type: "uniform",
+                    },
+                },
+            ],
+        });
+        
+        // create the bind group for the clusters
+        this.cluster_bind_group = device.createBindGroup({
+            label: "cluster_bind_group",
+            layout: this.cluster_bind_group_layout,
+            entries: [
+                
+                // create a new bind group entry for the cluster grid buffer
+                {
+                    // specify the binding index
+                    binding: 0,
+                    
+                    // specify the resource to be the camera's uniform buffer
+                    resource: {
+                        buffer: this.cluster_grid_buffer,
+                    },
+                },
+            ],
+        });
+        
+        // write the cluster grid width, height, and depth to the cluster grid buffer
+        device.queue.writeBuffer(
+            this.cluster_grid_buffer, 0,
+            new Uint32Array([
+                Lights.cluster_grid_width,
+                Lights.cluster_grid_height,
+                Lights.cluster_grid_depth,
+                0,
+            ])
+        );
     }
 
     private populateLightsBuffer() {

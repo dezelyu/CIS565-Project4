@@ -3,7 +3,13 @@ import { toRadians } from "../math_util";
 import { device, canvas, fovYDegrees, aspectRatio } from "../renderer";
 
 class CameraUniforms {
-    readonly buffer = new ArrayBuffer(16 * 4);
+    
+    // declare a new buffer variable
+    readonly buffer = new ArrayBuffer(
+        16 * 4
+        + 4 * 4
+    );
+    
     private readonly floatView = new Float32Array(this.buffer);
 
     set viewProjMat(mat: Float32Array) {
@@ -12,7 +18,12 @@ class CameraUniforms {
         this.floatView.set(mat, 0);
     }
 
-    // TODO-2: add extra functions to set values needed for light clustering here
+    // declare a setter for the camera vector
+    set camera(value: Float32Array) {
+        
+        // update the camera vector
+        this.floatView.set(value, 16);
+    }
 }
 
 export class Camera {
@@ -136,7 +147,13 @@ export class Camera {
         // update the view-projection matrix
         this.uniforms.viewProjMat = viewProjMat;
         
-        // TODO-2: write to extra buffers needed for light clustering here
+        // update the camera vector
+        this.uniforms.camera = [
+            Camera.nearPlane,
+            Camera.farPlane,
+            0.0,
+            0.0,
+        ];
 
         // upload the uniform buffer
         device.queue.writeBuffer(

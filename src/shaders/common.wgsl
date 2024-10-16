@@ -16,6 +16,9 @@ struct CameraUniforms {
     
     // declare the view-projection matrix
     matrix: mat4x4f,
+    
+    // declare the camera vector containing the camera properties
+    camera: vec4f,
 }
 
 // CHECKITOUT: this special attenuation function ensures lights don't affect geometry outside the maximum light radius
