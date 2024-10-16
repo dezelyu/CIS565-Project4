@@ -19,6 +19,10 @@ var diffuse_texture_sampler: sampler;
 @group(${bindGroup_cluster}) @binding(0)
 var<uniform> cluster_grid: vec4<u32>;
 
+// declare the variable for the light indices
+@group(${bindGroup_cluster}) @binding(3)
+var<storage, read_write> indices: cluster_index_data;
+
 // declare the intermediate data
 struct IntermediateData {
     
@@ -56,13 +60,8 @@ struct IntermediateData {
     // compute the cluster index
     let index = x + y * cluster_grid.x + z * cluster_grid.x * cluster_grid.y;
     
-    // debug the cluster index
-    return vec4(
-        f32(index) / f32(cluster_grid.x * cluster_grid.y * cluster_grid.z),
-        f32(index) / f32(cluster_grid.x * cluster_grid.y * cluster_grid.z),
-        f32(index) / f32(cluster_grid.x * cluster_grid.y * cluster_grid.z),
-        1.0f
-    );
+    // compute the start index for the lights to iterate
+    let start_index = index * cluster_grid.w;
     
     // acquire the diffuse color
     var color = textureSample(
@@ -76,14 +75,22 @@ struct IntermediateData {
         discard;
     }
     
-    // return the fragment color
-    return vec4(color.rgb, 1.0f);
-    
     // declare the variable for the total light contribution
     var total_light_contribution = vec3f(0.0f, 0.0f, 0.0f);
     
-    // iterate through all the lights
-    for (var light_index = 0u; light_index < lights.numLights; light_index += 1) {
+    // declare the number of lights iterated
+    var count = 0u;
+    
+    // iterate through the lights in this cluster
+    while (count < cluster_grid.w) {
+        
+        // acquire the current index
+        let light_index = indices.indices[start_index + count];
+        
+        // exit when the termination condition is met
+        if (light_index == 2 << 30) {
+            break;
+        }
         
         // acquire the current light
         let light = lights.lights[light_index];
@@ -92,6 +99,9 @@ struct IntermediateData {
         total_light_contribution += calculateLightContrib(
             light, data.point, data.normal
         );
+        
+        // increase the count
+        count += 1;
     }
     
     // compute and return the fragment color

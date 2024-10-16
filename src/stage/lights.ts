@@ -37,14 +37,29 @@ export class Lights {
     // declare a new variable for the depth of the cluster grid
     static readonly cluster_grid_depth = 30;
     
+    // declare a new variable for the maximum number of lights per cluster
+    static readonly light_per_cluster_count = 512;
+    
     // declare a new uniform buffer for the cluster grid properties
     cluster_grid_buffer: GPUBuffer;
+    
+    // declare a new uniform buffer for the light indices in the clusters
+    cluster_index_buffer: GPUBuffer;
     
     // declare the bind group layout for the clusters
     cluster_bind_group_layout: GPUBindGroupLayout;
     
     // declare the bind group for the clusters
     cluster_bind_group: GPUBindGroup;
+    
+    // declare the compute pipeline layout
+    compute_pipeline_layout: GPUPipelineLayout;
+    
+    // declare the compute pipeline compute shader module
+    compute_pipeline_compute_shader_module: GPUShaderModule;
+    
+    // declare the compute pipeline
+    compute_pipeline: GPURenderPipeline;
     
     constructor(camera: Camera) {
         this.camera = camera;
@@ -68,6 +83,18 @@ export class Lights {
             label: "cluster_grid_buffer",
             size: 4 * 4,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+        
+        // allocate the cluster index buffer
+        this.cluster_index_buffer = device.createBuffer({
+            label: "cluster_index_buffer",
+            size: 4 * (
+                Lights.cluster_grid_width
+                * Lights.cluster_grid_height
+                * Lights.cluster_grid_depth
+                * Lights.light_per_cluster_count
+            ),
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
         });
         
         this.moveLightsComputeBindGroupLayout = device.createBindGroupLayout({
@@ -126,12 +153,54 @@ export class Lights {
                     // specify the binding index
                     binding: 0,
                     
-                    // specify the shader stage to be all shaders
-                    visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+                    // specify the shader stage to be fragment and compute shaders
+                    visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
                     
                     // specify the buffer type to be uniform
                     buffer: {
                         type: "uniform",
+                    },
+                },
+                
+                // create a new bind group layout entry for the camera's uniform buffer
+                {
+                    // specify the binding index
+                    binding: 1,
+                    
+                    // specify the shader stage to be fragment and compute shaders
+                    visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+                    
+                    // specify the buffer type to be uniform
+                    buffer: {
+                        type: "uniform",
+                    },
+                },
+                
+                // create a new bind group layout entry for the light buffer
+                {
+                    // specify the binding index
+                    binding: 2,
+                    
+                    // specify the shader stage to be fragment and compute shaders
+                    visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+                    
+                    // specify the buffer type to be read-only storage
+                    buffer: {
+                        type: "read-only-storage",
+                    },
+                },
+                
+                // create a new bind group layout entry for the cluster index buffer
+                {
+                    // specify the binding index
+                    binding: 3,
+                    
+                    // specify the shader stage to be fragment and compute shaders
+                    visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+                    
+                    // specify the buffer type to be storage
+                    buffer: {
+                        type: "storage",
                     },
                 },
             ],
@@ -153,7 +222,64 @@ export class Lights {
                         buffer: this.cluster_grid_buffer,
                     },
                 },
+                
+                // create a new bind group entry for the camera's uniform buffer
+                {
+                    // specify the binding index
+                    binding: 1,
+                    
+                    // specify the resource to be the camera's uniform buffer
+                    resource: {
+                        buffer: camera.uniformsBuffer,
+                    },
+                },
+                
+                // create a new bind group entry for the light buffer
+                {
+                    // specify the binding index
+                    binding: 2,
+                    
+                    // specify the resource to be the light buffer
+                    resource: {
+                        buffer: this.lightSetStorageBuffer,
+                    },
+                },
+                
+                // create a new bind group entry for the cluster index buffer
+                {
+                    // specify the binding index
+                    binding: 3,
+                    
+                    // specify the resource to be the cluster index buffer
+                    resource: {
+                        buffer: this.cluster_index_buffer,
+                    },
+                },
             ],
+        });
+        
+        // create the compute pipeline layout
+        this.compute_pipeline_layout = device.createPipelineLayout({
+            label: "compute_pipeline_layout",
+            bindGroupLayouts: [
+                this.cluster_bind_group_layout,
+            ],
+        });
+        
+        // create the compute pipeline compute shader module
+        this.compute_pipeline_compute_shader_module = device.createShaderModule({
+            label: "compute_pipeline_compute_shader_module",
+            code: shaders.clusteringComputeSrc,
+        });
+        
+        // declare the compute pipeline
+        this.compute_pipeline = device.createComputePipeline({
+            label: "compute_pipeline",
+            layout: this.compute_pipeline_layout,
+            compute: {
+                module: this.compute_pipeline_compute_shader_module,
+                entryPoint: "main",
+            },
         });
         
         // write the cluster grid width, height, and depth to the cluster grid buffer
@@ -163,7 +289,7 @@ export class Lights {
                 Lights.cluster_grid_width,
                 Lights.cluster_grid_height,
                 Lights.cluster_grid_depth,
-                0,
+                Lights.light_per_cluster_count,
             ])
         );
     }
@@ -182,9 +308,33 @@ export class Lights {
         device.queue.writeBuffer(this.lightSetStorageBuffer, 0, new Uint32Array([this.numLights]));
     }
 
-    doLightClustering(encoder: GPUCommandEncoder) {
-        // TODO-2: run the light clustering compute pass(es) here
-        // implementing clustering here allows for reusing the code in both Forward+ and Clustered Deferred
+    // define the function for executing the compute shader
+    compute(encoder: GPUCommandEncoder) {
+        
+        // create a new compute pass
+        const compute_pass = encoder.beginComputePass();
+        
+        // bind the compute pipeline
+        compute_pass.setPipeline(this.compute_pipeline);
+        
+        // bind the scene's bind group
+        compute_pass.setBindGroup(
+            0, this.cluster_bind_group
+        );
+        
+        // compute the workload
+        const workload = Math.ceil(
+            Lights.cluster_grid_width
+            * Lights.cluster_grid_height
+            * Lights.cluster_grid_depth
+            / shaders.constants.moveLightsWorkgroupSize
+        );
+        
+        // dispatch the compute shader
+        compute_pass.dispatchWorkgroups(workload);
+        
+        // end the compute pass
+        compute_pass.end();
     }
 
     // CHECKITOUT: this is where the light movement compute shader is dispatched from the host

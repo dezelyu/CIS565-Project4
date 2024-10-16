@@ -8,6 +8,7 @@ class CameraUniforms {
     readonly buffer = new ArrayBuffer(
         16 * 4
         + 4 * 4
+        + 16 * 4
     );
     
     private readonly floatView = new Float32Array(this.buffer);
@@ -23,6 +24,13 @@ class CameraUniforms {
         
         // update the camera vector
         this.floatView.set(value, 16);
+    }
+    
+    // declare a setter for the view matrix
+    set view(matrix: Float32Array) {
+        
+        // update the view matrix
+        this.floatView.set(matrix, 20);
     }
 }
 
@@ -154,7 +162,10 @@ export class Camera {
             0.0,
             0.0,
         ];
-
+        
+        // update the view matrix
+        this.uniforms.view = viewMat;
+        
         // upload the uniform buffer
         device.queue.writeBuffer(
             this.uniformsBuffer, 0,

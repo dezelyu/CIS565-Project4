@@ -31,6 +31,9 @@ export const constants = {
     // define a constant for the clusters' bind group
     bindGroup_cluster: 3,
     
+    // define the default workgroup size
+    workgroup_size: 128,
+    
     moveLightsWorkgroupSize: 128,
 
     lightRadius: 2

@@ -164,6 +164,9 @@ export class ForwardPlusRenderer extends renderer.Renderer {
         // create a new command encoder
         const encoder = renderer.device.createCommandEncoder();
         
+        // execute the compute shader
+        this.lights.compute(encoder);
+        
         // create the attachment view where the scene is rendered
         const attachment_view = renderer.context.getCurrentTexture().createView();
         
