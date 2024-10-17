@@ -15,6 +15,31 @@ var<storage, read> lights: LightSet;
 @group(0) @binding(3)
 var<storage, read_write> indices: cluster_index_data;
 
+// declare a new function for converting a point to its cluster indices
+fn convert(point: vec3f) -> vec3u {
+    
+    // project the given point
+    let position = camera.matrix * vec4(point, 1.0f);
+    
+    // compute the pixel-space coordinate
+    let coordinate = clamp(position.xy / position.w, vec2f(-1.0f), vec2f(1.0f));
+    
+    // compute the linear depth
+    let depth = clamp(log(position.z / camera.camera.x) / log(camera.camera.y / camera.camera.x), 0.0f, 1.0f);
+    
+    // compute the cluster's x index
+    let x = u32(floor((coordinate.x * 0.5f + 0.5f) * f32(cluster_grid.x)));
+    
+    // compute the cluster's y index
+    let y = u32(floor((coordinate.y * 0.5f + 0.5f) * f32(cluster_grid.y)));
+    
+    // compute the cluster's z index
+    let z = u32(floor(depth * f32(cluster_grid.z)));
+    
+    // return the cluster indices
+    return vec3u(x, y, z);
+}
+
 // declare the compute shader
 @compute @workgroup_size(${workgroup_size}) fn main(@builtin(global_invocation_id) index: vec3u) {
     
@@ -44,57 +69,40 @@ var<storage, read_write> indices: cluster_index_data;
         // acquire the current light
         let light = lights.lights[light_index];
         
-        // create a vector with the light's radius as each component
-        let vector = vec3f(${lightRadius}, ${lightRadius}, ${lightRadius});
+        // compute the cluster indices of the eight corners
+        let index_1 = convert(light.pos + vec3f(-${lightRadius}, -${lightRadius}, -${lightRadius}));
+        let index_2 = convert(light.pos + vec3f(${lightRadius}, -${lightRadius}, -${lightRadius}));
+        let index_3 = convert(light.pos + vec3f(-${lightRadius}, ${lightRadius}, -${lightRadius}));
+        let index_4 = convert(light.pos + vec3f(${lightRadius}, ${lightRadius}, -${lightRadius}));
+        let index_5 = convert(light.pos + vec3f(-${lightRadius}, -${lightRadius}, ${lightRadius}));
+        let index_6 = convert(light.pos + vec3f(${lightRadius}, -${lightRadius}, ${lightRadius}));
+        let index_7 = convert(light.pos + vec3f(-${lightRadius}, ${lightRadius}, ${lightRadius}));
+        let index_8 = convert(light.pos + vec3f(${lightRadius}, ${lightRadius}, ${lightRadius}));
         
-        // acquire and project the min position of the light's bounding box to the screen
-        let min_position = camera.matrix * vec4(light.pos - vector, 1.0f);
+        // find the min index
+        var min_index = index_1;
+        min_index = min(min_index, index_2);
+        min_index = min(min_index, index_3);
+        min_index = min(min_index, index_4);
+        min_index = min(min_index, index_5);
+        min_index = min(min_index, index_6);
+        min_index = min(min_index, index_7);
+        min_index = min(min_index, index_8);
         
-        // acquire and project the max position of the light's bounding box to the screen
-        let max_position = camera.matrix * vec4(light.pos + vector, 1.0f);
+        // find the max index
+        var max_index = index_1;
+        max_index = max(max_index, index_2);
+        max_index = max(max_index, index_3);
+        max_index = max(max_index, index_4);
+        max_index = max(max_index, index_5);
+        max_index = max(max_index, index_6);
+        max_index = max(max_index, index_7);
+        max_index = max(max_index, index_8);
         
-        // compute the min pixel-space coordinate
-        let min_coordinate = min_position.xy / min_position.w;
-        
-        // compute the max pixel-space coordinate
-        let max_coordinate = max_position.xy / max_position.w;
-        
-        // compute the light's min x index
-        let min_x = u32(floor((min_coordinate.x * 0.5f + 0.5f) * f32(cluster_grid.x)));
-        
-        // compute the light's max x index
-        let max_x = u32(floor((max_coordinate.x * 0.5f + 0.5f) * f32(cluster_grid.x)));
-        
-        // skip this light if its x is out of bound
-        if (min_x > x || x > max_x) {
-            continue;
-        }
-        
-        // compute the light's min y index
-        let min_y = u32(floor((min_coordinate.y * 0.5f + 0.5f) * f32(cluster_grid.y)));
-        
-        // compute the light's max y index
-        let max_y = u32(floor((max_coordinate.y * 0.5f + 0.5f) * f32(cluster_grid.y)));
-        
-        // skip this light if its y is out of bound
-        if (min_y > y || y > max_y) {
-            continue;
-        }
-        
-        // compute the minimal linear depth
-        let min_depth = log(min_position.z / camera.camera.x) / log(camera.camera.y / camera.camera.x);
-        
-        // compute the maximal linear depth
-        let max_depth = log(max_position.z / camera.camera.x) / log(camera.camera.y / camera.camera.x);
-        
-        // compute the index of the minimal linear depth
-        let min_depth_index = u32(floor(min_depth * f32(cluster_grid.z)));
-        
-        // compute the index of the maximal linear depth
-        let max_depth_index = u32(floor(max_depth * f32(cluster_grid.z)));
-        
-        // skip this light if its depth is out of bound
-        if (min_depth_index > z || z > max_depth_index) {
+        // skip this light if its bounding box is out of range
+        if (min_index.x > x || x > max_index.x ||
+            min_index.y > y || y > max_index.y ||
+            min_index.z > z || z > max_index.z) {
             continue;
         }
         
