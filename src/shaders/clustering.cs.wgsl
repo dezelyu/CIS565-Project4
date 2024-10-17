@@ -22,7 +22,12 @@ fn convert(point: vec3f) -> vec3i {
     let position = camera.matrix * vec4(point, 1.0f);
     
     // compute the pixel-space coordinate
-    let coordinate = position.xy;
+    var coordinate = position.xy;
+    
+    // perform perspective divide
+    if (position.w > 0.0f) {
+        coordinate /= position.w;
+    }
     
     // compute the linear depth
     let depth = clamp(log(position.z / camera.camera.x) / log(camera.camera.y / camera.camera.x), 0.0f, 1.0f);
