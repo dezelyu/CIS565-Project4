@@ -39,6 +39,17 @@ struct IntermediateData {
         discard;
     }
     
-    // compute and return the fragment color
-    return vec4(color.rgb, 1.0f);
+    // compress the color into a single float
+    let r = u32(clamp(color.r * 1000.0f, 0.0f, 1000.0f));
+    let g = u32(clamp(color.g * 1000.0f, 0.0f, 1000.0f));
+    let b = u32(clamp(color.b * 1000.0f, 0.0f, 1000.0f));
+    let a = f32(r + g * 1000 + b * 1000 * 1000);
+    
+    // compute and return the intermediate texture data
+    return vec4(
+        data.normal.x,
+        data.normal.y,
+        data.normal.z,
+        a
+    );
 }

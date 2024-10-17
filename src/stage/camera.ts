@@ -8,6 +8,8 @@ class CameraUniforms {
     readonly buffer = new ArrayBuffer(
         16 * 4
         + 4 * 4
+        + 16 * 4
+        + 16 * 4
     );
     
     private readonly floatView = new Float32Array(this.buffer);
@@ -23,6 +25,20 @@ class CameraUniforms {
         
         // update the camera vector
         this.floatView.set(value, 16);
+    }
+    
+    // declare a setter for the inverse projection matrix
+    set inverse_projection(matrix: Float32Array) {
+        
+        // update the camera vector
+        this.floatView.set(matrix, 20);
+    }
+    
+    // declare a setter for the inverse view matrix
+    set inverse_view(matrix: Float32Array) {
+        
+        // update the camera vector
+        this.floatView.set(matrix, 36);
     }
 }
 
@@ -154,6 +170,10 @@ export class Camera {
             0.0,
             0.0,
         ];
+        
+        // update the inverse projection and view matrices
+        this.uniforms.inverse_projection = mat4.invert(this.projMat);
+        this.uniforms.inverse_view = mat4.invert(viewMat);
         
         // upload the uniform buffer
         device.queue.writeBuffer(

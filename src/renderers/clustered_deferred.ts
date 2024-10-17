@@ -117,7 +117,7 @@ export class ClusteredDeferredRenderer extends renderer.Renderer {
                 renderer.canvas.height,
             ],
             format: "depth24plus",
-            usage: GPUTextureUsage.RENDER_ATTACHMENT,
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
         });
         
         // create the depth texture view
@@ -216,6 +216,34 @@ export class ClusteredDeferredRenderer extends renderer.Renderer {
                         type: 'non-filtering',
                     },
                 },
+                
+                // create a new bind group layout entry for the depth texture
+                {
+                    // specify the binding index
+                    binding: 3,
+                    
+                    // specify the shader stage to be the fragment shader
+                    visibility: GPUShaderStage.FRAGMENT,
+                    
+                    // specify the texture type
+                    texture: {
+                        sampleType: 'unfilterable-float',
+                    },
+                },
+                
+                // create a new bind group layout entry for the light buffer
+                {
+                    // specify the binding index
+                    binding: 4,
+                    
+                    // specify the shader stage to be the fragment shader
+                    visibility: GPUShaderStage.FRAGMENT,
+                    
+                    // specify the buffer type to be read-only storage
+                    buffer: {
+                        type: "read-only-storage",
+                    },
+                },
             ],
         });
         
@@ -253,6 +281,26 @@ export class ClusteredDeferredRenderer extends renderer.Renderer {
                     // specify the resource
                     resource: renderer.device.createSampler(),
                 },
+                
+                // create a new bind group entry entry for the depth texture
+                {
+                    // specify the binding index
+                    binding: 3,
+                    
+                    // specify the resource
+                    resource: this.depth_texture_view,
+                },
+                
+                // create a new bind group entry for the light buffer
+                {
+                    // specify the binding index
+                    binding: 4,
+                    
+                    // specify the resource to be the light buffer
+                    resource: {
+                        buffer: this.lights.lightSetStorageBuffer,
+                    },
+                },
             ],
         });
         
@@ -261,6 +309,7 @@ export class ClusteredDeferredRenderer extends renderer.Renderer {
             label: "present_pipeline_layout",
             bindGroupLayouts: [
                 this.present_bind_group_layout,
+                this.lights.cluster_bind_group_layout,
             ],
         });
         
@@ -392,6 +441,11 @@ export class ClusteredDeferredRenderer extends renderer.Renderer {
         // bind the present bind group to the present pass
         present_pass.setBindGroup(
             0, this.present_bind_group
+        );
+        
+        // bind the clusters' bind group to the present pass
+        present_pass.setBindGroup(
+            1, this.lights.cluster_bind_group
         );
         
         // perform rendering
