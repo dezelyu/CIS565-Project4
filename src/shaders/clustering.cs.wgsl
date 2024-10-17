@@ -16,28 +16,28 @@ var<storage, read> lights: LightSet;
 var<storage, read_write> indices: cluster_index_data;
 
 // declare a new function for converting a point to its cluster indices
-fn convert(point: vec3f) -> vec3u {
+fn convert(point: vec3f) -> vec3i {
     
     // project the given point
     let position = camera.matrix * vec4(point, 1.0f);
     
     // compute the pixel-space coordinate
-    let coordinate = clamp(position.xy / position.w, vec2f(-1.0f), vec2f(1.0f));
+    let coordinate = position.xy / position.w;
     
     // compute the linear depth
     let depth = clamp(log(position.z / camera.camera.x) / log(camera.camera.y / camera.camera.x), 0.0f, 1.0f);
     
     // compute the cluster's x index
-    let x = u32(floor((coordinate.x * 0.5f + 0.5f) * f32(cluster_grid.x)));
+    let x = i32(floor((coordinate.x * 0.5f + 0.5f) * f32(cluster_grid.x)));
     
     // compute the cluster's y index
-    let y = u32(floor((coordinate.y * 0.5f + 0.5f) * f32(cluster_grid.y)));
+    let y = i32(floor((coordinate.y * 0.5f + 0.5f) * f32(cluster_grid.y)));
     
     // compute the cluster's z index
-    let z = u32(floor(depth * f32(cluster_grid.z)));
+    let z = i32(floor(depth * f32(cluster_grid.z)));
     
     // return the cluster indices
-    return vec3u(x, y, z);
+    return vec3i(x, y, z);
 }
 
 // declare the compute shader
@@ -49,13 +49,13 @@ fn convert(point: vec3f) -> vec3u {
     }
     
     // acquire the x index of the cluster
-    let x = index.x % cluster_grid.x;
+    let x = i32(index.x % cluster_grid.x);
     
     // acquire the y index of the cluster
-    let y = (index.x / cluster_grid.x) % cluster_grid.y;
+    let y = i32((index.x / cluster_grid.x) % cluster_grid.y);
     
     // acquire the z index of the cluster
-    let z = index.x / (cluster_grid.x * cluster_grid.y);
+    let z = i32(index.x / (cluster_grid.x * cluster_grid.y));
     
     // compute the start index for the lights in this cluster
     let start_index = index.x * cluster_grid.w;

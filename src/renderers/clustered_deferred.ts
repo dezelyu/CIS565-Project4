@@ -10,6 +10,12 @@ export class ClusteredDeferredRenderer extends renderer.Renderer {
     // declare the bind group for the scene
     scene_bind_group: GPUBindGroup;
     
+    // declare the intermediate texture
+    intermediate_texture: GPUTexture;
+    
+    // declare the intermediate texture view
+    intermediate_texture_view: GPUTextureView;
+    
     // declare the depth texture
     depth_texture: GPUTexture;
     
@@ -27,6 +33,24 @@ export class ClusteredDeferredRenderer extends renderer.Renderer {
     
     // declare the render pipeline
     render_pipeline: GPURenderPipeline;
+    
+    // declare the bind group layout for the present pipeline
+    present_bind_group_layout: GPUBindGroupLayout;
+    
+    // declare the bind group for the present pipeline
+    present_bind_group: GPUBindGroup;
+    
+    // declare the present pipeline layout
+    present_pipeline_layout: GPUPipelineLayout;
+    
+    // declare the present pipeline vertex shader module
+    present_pipeline_vertex_shader_module: GPUShaderModule;
+    
+    // declare the present pipeline fragment shader module
+    present_pipeline_fragment_shader_module: GPUShaderModule;
+    
+    // declare the present pipeline
+    present_pipeline: GPURenderPipeline;
     
     constructor(stage: Stage) {
         super(stage);
@@ -70,6 +94,20 @@ export class ClusteredDeferredRenderer extends renderer.Renderer {
                 },
             ],
         });
+        
+        // create the intermediate texture
+        this.intermediate_texture = renderer.device.createTexture({
+            label: "intermediate_texture",
+            size: [
+                renderer.canvas.width,
+                renderer.canvas.height,
+            ],
+            format: "rgba32float",
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+        });
+        
+        // create the intermediate texture view
+        this.intermediate_texture_view = this.intermediate_texture.createView();
         
         // create the depth texture
         this.depth_texture = renderer.device.createTexture({
@@ -126,6 +164,129 @@ export class ClusteredDeferredRenderer extends renderer.Renderer {
                 module: this.render_pipeline_fragment_shader_module,
                 targets: [
                     {
+                        format: "rgba32float",
+                    },
+                ],
+            },
+        });
+        
+        // create the bind group layout for the present pipeline
+        this.present_bind_group_layout = renderer.device.createBindGroupLayout({
+            label: "present_bind_group_layout",
+            entries: [
+                
+                // create a new bind group layout entry for the camera's uniform buffer
+                {
+                    // specify the binding index
+                    binding: 0,
+                    
+                    // specify the shader stage to be the vertex and fragment shader
+                    visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+                    
+                    // specify the buffer type to be uniform
+                    buffer: {
+                        type: "uniform",
+                    },
+                },
+                
+                // create a new bind group layout entry for the intermediate texture
+                {
+                    // specify the binding index
+                    binding: 1,
+                    
+                    // specify the shader stage to be the fragment shader
+                    visibility: GPUShaderStage.FRAGMENT,
+                    
+                    // specify the texture type
+                    texture: {
+                        sampleType: 'unfilterable-float',
+                    },
+                },
+                
+                // create a new bind group layout entry for the intermediate texture sampler
+                {
+                    // specify the binding index
+                    binding: 2,
+                    
+                    // specify the shader stage to be the fragment shader
+                    visibility: GPUShaderStage.FRAGMENT,
+                    
+                    // specify the sampler type
+                    sampler: {
+                        type: 'non-filtering',
+                    },
+                },
+            ],
+        });
+        
+        // create the bind group for the present pipeline
+        this.present_bind_group = renderer.device.createBindGroup({
+            label: "present_bind_group",
+            layout: this.present_bind_group_layout,
+            entries: [
+                
+                // create a new bind group entry for the camera's uniform buffer
+                {
+                    // specify the binding index
+                    binding: 0,
+                    
+                    // specify the resource to be the camera's uniform buffer
+                    resource: {
+                        buffer: this.camera.uniformsBuffer,
+                    },
+                },
+                
+                // create a new bind group entry entry for the intermediate texture
+                {
+                    // specify the binding index
+                    binding: 1,
+                    
+                    // specify the resource
+                    resource: this.intermediate_texture_view,
+                },
+                
+                // create a new bind group entry entry for the intermediate texture sampler
+                {
+                    // specify the binding index
+                    binding: 2,
+                    
+                    // specify the resource
+                    resource: renderer.device.createSampler(),
+                },
+            ],
+        });
+        
+        // create the present pipeline layout
+        this.present_pipeline_layout = renderer.device.createPipelineLayout({
+            label: "present_pipeline_layout",
+            bindGroupLayouts: [
+                this.present_bind_group_layout,
+            ],
+        });
+        
+        // declare the present pipeline vertex shader module
+        this.present_pipeline_vertex_shader_module = renderer.device.createShaderModule({
+            label: "present_pipeline_vertex_shader_module",
+            code: shaders.clusteredDeferredFullscreenVertSrc,
+        });
+        
+        // declare the present pipeline fragment shader module
+        this.present_pipeline_fragment_shader_module = renderer.device.createShaderModule({
+            label: "present_pipeline_fragment_shader_module",
+            code: shaders.clusteredDeferredFullscreenFragSrc,
+        });
+        
+        // create the present pipeline
+        this.present_pipeline = renderer.device.createRenderPipeline({
+            label: "present_pipeline",
+            layout: this.present_pipeline_layout,
+            vertex: {
+                module: this.present_pipeline_vertex_shader_module,
+            },
+            fragment: {
+                module: this.present_pipeline_fragment_shader_module,
+                targets: [
+                    {
                         format: renderer.canvasFormat,
                     },
                 ],
@@ -149,7 +310,7 @@ export class ClusteredDeferredRenderer extends renderer.Renderer {
             label: "render_pass",
             colorAttachments: [
                 {
-                    view: attachment_view,
+                    view: this.intermediate_texture_view,
                     clearValue: [
                         0,
                         0,
@@ -212,6 +373,32 @@ export class ClusteredDeferredRenderer extends renderer.Renderer {
         
         // end the render pass
         render_pass.end();
+        
+        // create and start the present pass
+        const present_pass = encoder.beginRenderPass({
+            label: "present_pass",
+            colorAttachments: [
+                {
+                    view: attachment_view,
+                    loadOp: "clear",
+                    storeOp: "store",
+                },
+            ],
+        });
+        
+        // bind the present pipeline
+        present_pass.setPipeline(this.present_pipeline);
+        
+        // bind the present bind group to the present pass
+        present_pass.setBindGroup(
+            0, this.present_bind_group
+        );
+        
+        // perform rendering
+        present_pass.draw(6);
+        
+        // end the present pass
+        present_pass.end();
         
         // submit the encoded commands
         renderer.device.queue.submit([
