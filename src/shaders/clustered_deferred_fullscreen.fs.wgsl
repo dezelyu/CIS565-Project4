@@ -58,6 +58,9 @@ var<storage, read_write> indices: cluster_index_data;
     let r = (a - g * 1000.0f - b * 1000.0f * 1000.0f);
     color = vec4f(vec3f(r, g, b) / 1000.0f, 1.0f);
     
+    // return the color directly
+    return color;
+    
     // extract the r component from the depth texture
     var depth_r = textureSample(
         depth_texture,

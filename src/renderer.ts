@@ -10,7 +10,9 @@ export var device: GPUDevice;
 export var canvasTextureView: GPUTextureView;
 
 export var aspectRatio: number;
-export const fovYDegrees = 45;
+
+// specify the field of view to be 60 degrees
+export const fovYDegrees = 60;
 
 export var modelBindGroupLayout: GPUBindGroupLayout;
 export var materialBindGroupLayout: GPUBindGroupLayout;

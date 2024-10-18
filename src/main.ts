@@ -15,42 +15,16 @@ await initWebGPU();
 setupLoaders();
 
 let scene = new Scene();
-await scene.loadGltf('./scenes/sponza/Sponza.gltf');
+
+// load the custom scene
+await scene.loadGltf('./scenes/scene/scene.gltf');
 
 const camera = new Camera();
 const lights = new Lights(camera);
 
 const stats = new Stats();
-stats.showPanel(0);
-document.body.appendChild(stats.dom);
-
-const gui = new GUI();
-gui.add(lights, 'numLights').min(1).max(Lights.maxNumLights).step(1).onChange(() => {
-    lights.updateLightSetUniformNumLights();
-});
 
 const stage = new Stage(scene, lights, camera, stats);
 
-var renderer: Renderer | undefined;
-
-function setRenderer(mode: string) {
-    renderer?.stop();
-
-    switch (mode) {
-        case renderModes.naive:
-            renderer = new NaiveRenderer(stage);
-            break;
-        case renderModes.forwardPlus:
-            renderer = new ForwardPlusRenderer(stage);
-            break;
-        case renderModes.clusteredDeferred:
-            renderer = new ClusteredDeferredRenderer(stage);
-            break;
-    }
-}
-
-const renderModes = { naive: 'naive', forwardPlus: 'forward+', clusteredDeferred: 'clustered deferred' };
-let renderModeController = gui.add({ mode: renderModes.naive }, 'mode', renderModes);
-renderModeController.onChange(setRenderer);
-
-setRenderer(renderModeController.getValue());
+// always use the clustered deferred renderer
+var renderer = new ClusteredDeferredRenderer(stage);
