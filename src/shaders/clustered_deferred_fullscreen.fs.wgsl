@@ -58,9 +58,6 @@ var<storage, read_write> indices: cluster_index_data;
     let r = (a - g * 1000.0f - b * 1000.0f * 1000.0f);
     color = vec4f(vec3f(r, g, b) / 1000.0f, 1.0f);
     
-    // return the color directly
-    return color;
-    
     // extract the r component from the depth texture
     var depth_r = textureSample(
         depth_texture,
@@ -137,6 +134,12 @@ var<storage, read_write> indices: cluster_index_data;
         // increase the count
         count += 1;
     }
+    
+    // compute the lambert shading factor
+    let lambert_factor = max(0.0f, dot(normalize(normal), normalize(vec3(1.0f, 1.0f, -1.0f))));
+    
+    // update the total light contribution
+    total_light_contribution += vec3f(lambert_factor * 0.2f + 0.2f);
     
     // update the color
     color = vec4f(color.rgb * total_light_contribution, 1.0f);

@@ -13,7 +13,9 @@ function hueToRgb(h: number) {
 export class Lights {
     private camera: Camera;
 
-    numLights = 500;
+    // request five thousand lights
+    numLights = 5000;
+    
     static readonly maxNumLights = 5000;
     static readonly numFloatsPerLight = 8; // vec3f is aligned at 16 byte boundaries
 
@@ -296,9 +298,18 @@ export class Lights {
 
     private populateLightsBuffer() {
         for (let lightIdx = 0; lightIdx < Lights.maxNumLights; ++lightIdx) {
-            // light pos is set by compute shader so no need to set it here
-            const lightColor = vec3.scale(hueToRgb(Math.random()), Lights.lightIntensity);
-            this.lightsArray.set(lightColor, (lightIdx * Lights.numFloatsPerLight) + 4);
+            
+            // randomize the light color to be a random warm color
+            const random_light_color = vec3.scale(
+                hueToRgb(Math.random() * 0.1),
+                Lights.lightIntensity
+            );
+            
+            // update the light data
+            this.lightsArray.set(
+                random_light_color,
+                lightIdx * Lights.numFloatsPerLight + 4
+            );
         }
 
         device.queue.writeBuffer(this.lightSetStorageBuffer, 16, this.lightsArray);

@@ -44,9 +44,6 @@ fn perlin3(lightIdx: u32, scaledTime: f32) -> vec3f {
     return vec3f(perlin(seedPos), perlin(seedPos + 110.93), perlin(seedPos + 350.51));
 }
 
-const bboxMin = vec3f(-10, 0, -5);
-const bboxMax = vec3f(10, 8, 5);
-
 // CHECKITOUT: this is an example of a compute shader entry point function
 @compute
 @workgroup_size(${moveLightsWorkgroupSize})
@@ -55,12 +52,16 @@ fn main(@builtin(global_invocation_id) globalIdx: vec3u) {
     if (lightIdx >= lightSet.numLights) {
         return;
     }
-
-    let scaledTime = time / 5000.f;
-
-    let noise = perlin3(lightIdx, scaledTime);
-    // perlin noise rarely reaches the extremes (-1 and 1), so scale accordingly here to ensure lights reach
-    // the bounding box's sides
-    let scaledNoise = (noise + 0.5) * 0.8;
-    lightSet.lights[lightIdx].pos = mix(bboxMin, bboxMax, scaledNoise);
+    
+    // generate a random position with a slow time flow
+    var position = perlin3(lightIdx, time / 40000.0f);
+    
+    // scale the position
+    position *= vec3f(80.0f, 20.0f, 40.0f);
+    
+    // move the position
+    position += vec3f(20.0f, 4.0f, -4.0f);
+    
+    // update the light position
+    lightSet.lights[lightIdx].pos = position;
 }

@@ -36,7 +36,8 @@ export const constants = {
     
     moveLightsWorkgroupSize: 128,
 
-    lightRadius: 2
+    // define the light radius
+    lightRadius: 3
 };
 
 // =================================

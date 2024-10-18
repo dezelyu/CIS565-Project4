@@ -32,7 +32,9 @@ struct CameraUniforms {
 
 // CHECKITOUT: this special attenuation function ensures lights don't affect geometry outside the maximum light radius
 fn rangeAttenuation(distance: f32) -> f32 {
-    return clamp(1.f - pow(distance / ${lightRadius}, 4.f), 0.f, 1.f) / (distance * distance);
+    
+    // compute a soft range-based attenuation
+    return clamp(1.0f - pow(distance / ${lightRadius}, 4.0f), 0.0f, 1.0f) * 4.0f;
 }
 
 fn calculateLightContrib(light: Light, posWorld: vec3f, nor: vec3f) -> vec3f {
