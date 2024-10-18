@@ -136,13 +136,70 @@ var<storage, read_write> indices: cluster_index_data;
     }
     
     // compute the lambert shading factor
-    let lambert_factor = max(0.0f, dot(normalize(normal), normalize(vec3(1.0f, 1.0f, -1.0f))));
+    var lambert_factor = max(0.0f, dot(normalize(normal), normalize(vec3(1.0f, 1.0f, -1.0f))));
+    
+    // add another directional light
+    lambert_factor += max(0.0f, dot(normalize(normal), normalize(vec3(1.0f, -1.0f, -1.0f))));
+    
+    // compute the luminance from the lighting factor
+    let luminance = dot(vec3f(lambert_factor), vec3f(0.299f, 0.587f, 0.114f));
+    
+    // compute the shading intensity with four layers
+    let intensity = vec3f(1.0f, 0.8f, 0.4f) * floor(luminance * 4.0f) / 12.0f;
     
     // update the total light contribution
     total_light_contribution += vec3f(lambert_factor * 0.2f + 0.2f);
     
-    // update the color
-    color = vec4f(color.rgb * total_light_contribution, 1.0f);
+    // update the color based on the total light contribution and the shading intensity
+    color = vec4f(color.rgb * total_light_contribution * 0.8f + color.rgb * intensity, 1.0f);
+    
+    // define the offsets for the neighboring pixels
+    let offset = 2.0f / vec2f(camera.camera.z, camera.camera.w);
+    
+    // sample the depth data at neighboring pixels
+    var depth_left = textureSample(
+        depth_texture,
+        intermediate_texture_sampler,
+        data.coordinate + vec2f(-offset.x, 0.0f)
+    ).r;
+    var depth_right = textureSample(
+        depth_texture,
+        intermediate_texture_sampler,
+        data.coordinate + vec2f(offset.x, 0.0f)
+    ).r;
+    var depth_up = textureSample(
+        depth_texture,
+        intermediate_texture_sampler,
+        data.coordinate + vec2f(0.0f, offset.y)
+    ).r;
+    var depth_down = textureSample(
+        depth_texture,
+        intermediate_texture_sampler,
+        data.coordinate + vec2f(0.0f, -offset.y)
+    ).r;
+    
+    // declare the threshold for edge detection
+    let threshold = 0.0005f;
+    
+    // darken the edges
+    if (abs(depth_r - depth_left) > threshold ||
+        abs(depth_r - depth_right) > threshold ||
+        abs(depth_r - depth_up) > threshold ||
+        abs(depth_r - depth_down) > threshold) {
+        color *= 0.5f;
+    }
+    
+    // compute the distance to the nearest border
+    let distance = min(
+        min(data.coordinate.x, 1.0f - data.coordinate.x),
+        min(data.coordinate.y, 1.0f - data.coordinate.y)
+    );
+    
+    // compute the darkening factor
+    let darkening_factor = 0.4f - smoothstep(0.0f, 0.1f, distance) * 0.4f;
+    
+    // darken the borders
+    color = mix(color, vec4f(0.0f, 0.0f, 0.0f, 1.0f), darkening_factor);
     
     // return the fragment color
     return vec4f(color.rgb, 1.0f);

@@ -155,12 +155,19 @@ export class Camera {
         // update the view-projection matrix
         this.uniforms.viewProjMat = viewProjMat;
         
+        // acquire the main canvas
+        let canvas = document.getElementById("mainCanvas") as HTMLCanvasElement;
+        
+        // acquire the canvas's width and height
+        let width = canvas.clientWidth * window.devicePixelRatio;
+        let height = canvas.clientHeight * window.devicePixelRatio;
+        
         // update the camera vector
         this.uniforms.camera = [
             Camera.nearPlane,
             Camera.farPlane,
-            0.0,
-            0.0,
+            width,
+            height,
         ];
         
         // update the inverse projection and view matrices
