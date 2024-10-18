@@ -40,6 +40,10 @@ Finally, pure forward rendering is considered the slowest method, as it shades o
 
 The graph above illustrates the rendering time in milliseconds as the number of lights increases for the three rendering techniques, aligning with our expectations. It is important to note that the graph employs a logarithmic scale on the y-axis, indicating that the actual trends are more pronounced than they appear.
 
+### G-Buffer Optimization
+
+Clustered deferred rendering utilizes a single intermediate texture formatted as RGBA32FLOAT to pack both color and normal data. This approach allows the geometry pass to employ a single color attachment, rather than multiple attachments, each sized to a vec4f data type. As a result, this method effectively reduces memory read and write operations.
+
 ### Credits
 
 - [Vite](https://vitejs.dev/): A fast build tool and development server for modern web projects.
