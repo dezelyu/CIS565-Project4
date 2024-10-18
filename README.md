@@ -28,7 +28,17 @@ The basic demo is located on the **main** branch. The animated image above showc
 
 ### Performance Analysis
 
-In progress...
+The three rendering techniques operate as follows: forward rendering processes objects in a single pass, shading them immediately with all lights, regardless of occlusion. In contrast, forward+ rendering optimizes performance by first clustering lights in a compute pass and shading only the visible lights for objects. Meanwhile, clustered deferred rendering enhances this approach by separating the geometry pass from the shading pass, allowing for the shading of only the visible objects after they have been determined.
+
+As a result, clustered deferred shading is anticipated to deliver the best average performance, since the renderer consistently shades a number of pixels proportional to the total number of fragments on the screen.
+
+Although forward+ rendering clusters lights, it still shades all objects regardless of occlusion, which can bottleneck performance. Nevertheless, in scenarios with minimal occlusion, forward+ rendering may outperform clustered deferred rendering, as it does not require a separate geometry pass.
+
+Finally, pure forward rendering is considered the slowest method, as it shades occluded objects and accounts for all lights, regardless of their visibility.
+
+![](images/image3.png)
+
+The graph above illustrates the rendering time in milliseconds as the number of lights increases for the three rendering techniques, aligning with our expectations. It is important to note that the graph employs a logarithmic scale on the y-axis, indicating that the actual trends are more pronounced than they appear.
 
 ### Credits
 
