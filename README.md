@@ -10,11 +10,11 @@ WebGL Forward+ and Clustered Deferred Shading
 
 The final demo is deployed as a GitHub Pages website and can be accessed [here](https://dezelyu.github.io/CIS565-Project4/).
 
-![](img/image0.gif)
+![](images/image0.gif)
 
 The scene was constructed in **Unity**, utilizing an environment asset purchased from the Unity Asset Store, which was modified to suit the project's objectives. The character model was designed and released by Hoyoverse for non-commercial use in compliance with their legal guidelines.
 
-![](img/image1.png)
+![](images/image1.png)
 
 Please note that the final demo scene has been created on a separate branch named **creative**, as the base code was extensively modified to achieve the objectives.
 
@@ -22,7 +22,7 @@ Please note that the final demo scene has been created on a separate branch name
 
 This is a screen recording of the basic demo showcasing the togglable rendering techniques: forward rendering, forward+ rendering (which clusters lights in a compute pass), and clustered deferred rendering, which also utilizes the clustered light data.
 
-![](img/image2.gif)
+![](images/image2.gif)
 
 The basic demo is located on the **main** branch. The animated image above showcases the clustered deferred rendering, achieving approximately 30 FPS in a fullscreen Chrome browser on my MacBook Pro. In comparison, the forward+ rendering achieves around 10 FPS, while the pure forward rendering reaches only 1 FPS.
 
